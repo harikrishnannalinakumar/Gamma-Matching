@@ -260,7 +260,14 @@ if uploaded_file is not None:
         with p4:
             shift_step = st.number_input("shift_step", value=0.001, format="%.4f")
         with p5:
-            smooth_sigma = st.number_input("smooth_sigma", value=3.0, format="%.1f")
+            smooth_sigma = st.number_input(
+                "smooth_sigma",
+                 min_value=0.0,
+                 max_value=20.0,
+                 value=3.0,
+                 step=0.1,
+                 format="%.1f"
+                 )
 
         if st.button("Run depth matching", type="primary"):
             if ref_curve == run_curve:
