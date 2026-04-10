@@ -133,26 +133,47 @@ def depth_match_from_single_las(
     }
 
 
-def make_depth_plot(result, ref_curve, run_curve):
-    fig, ax = plt.subplots(figsize=(6, 6))
-    ax.plot(result["ref"], result["common_depth"], label=f"Reference, {ref_curve}")
-    ax.plot(result["run"], result["common_depth"], label=f"Run original, {run_curve}", alpha=0.7)
-    ax.plot(
-        result["shifted_run"],
-        result["shifted_depth_axis"],
-        label=f"Run shifted, {run_curve}",
-        linestyle="--",
+def make_depth_plot_tracks(result, ref_curve, run_curve):
+    fig, axes = plt.subplots(ncols=3, figsize=(8, 6), sharey=True)
+
+
+    axes[0].plot(result["ref"], result["common_depth"])
+    axes[0].invert_yaxis()
+    axes[0].set_title(f"Reference\n{ref_curve}")
+    axes[0].set_xlabel("Gamma")
+    axes[0].set_ylabel("Depth (m)")
+    axes[0].grid(True, alpha=0.3)
+
+
+    axes[1].plot(result["run"], result["common_depth"])
+    axes[1].set_title(f"Run Original\n{run_curve}")
+    axes[1].set_xlabel("Gamma")
+    axes[1].grid(True, alpha=0.3)
+
+
+    axes[2].plot(
+        result["ref"],
+        result["common_depth"],
+        linewidth=1.5,
+        label=f"Ref, {ref_curve}"
     )
-    ax.invert_yaxis()
-    ax.set_xlabel("Gamma")
-    ax.set_ylabel("Depth (m)")
-    ax.set_title("Gamma Depth Matching")
-    ax.legend()
+    axes[2].plot(
+        result["shifted_run"],
+        result["common_depth"],
+        linestyle="--",
+        label=f"Shifted, {run_curve}"
+    )
+    axes[2].set_title("Matched Comparison")
+    axes[2].set_xlabel("Gamma")
+    axes[2].grid(True, alpha=0.3)
+    axes[2].legend(fontsize=8)
+
+    plt.tight_layout()
     return fig
 
 
 def make_correlation_plot(result):
-    fig, ax = plt.subplots(figsize=(8, 4))
+    fig, ax = plt.subplots(figsize=(5.5, 3.2))
     ax.plot(result["display_shifts"], result["correlations"])
     ax.axvline(
         result["best_shift_display"],
@@ -163,41 +184,50 @@ def make_correlation_plot(result):
     ax.set_ylabel("Correlation")
     ax.set_title("Correlation vs Shift")
     ax.legend()
+    ax.grid(True, alpha=0.3)
+    plt.tight_layout()
     return fig
 
 
-st.set_page_config(page_title="LAS Depth Matching", layout="wide")
-st.title("LAS Depth Matching, Single File")
+st.set_page_config(page_title="Depth Matching", layout="wide")
+st.title("Depth Matching for Gamma Curves")
 
 uploaded_file = st.file_uploader("Upload a LAS file", type=["las"])
 
 if uploaded_file is not None:
     try:
         las = read_uploaded_las(uploaded_file)
-        curve_names = get_curve_names(las)
+        curve_names = [curve.mnemonic for curve in las.curves]
+
+        curve_options = [
+            c for c in curve_names
+            if any(k in c.upper() for k in ["NG", "GAMMA", "GR"])
+        ]
+
+        if not curve_options:
+            curve_options = curve_names
 
         if not curve_names:
             st.error("No curves were found in the uploaded LAS file.")
             st.stop()
 
-        gamma_like = [c for c in curve_names if any(k in c.upper() for k in ["GAMMA", "NG", "GR"])]
-        default_ref_options = gamma_like if gamma_like else curve_names
-
         st.subheader("Curve selection")
 
         col1, col2 = st.columns(2)
+
         with col1:
             ref_curve = st.selectbox(
                 "Reference curve",
-                options=curve_names,
-                index=curve_names.index(default_ref_options[0]) if default_ref_options[0] in curve_names else 0,
+                options=curve_options,
+                index=0
             )
+
         with col2:
-            run_default = default_ref_options[1] if len(default_ref_options) > 1 else curve_names[min(1, len(curve_names) - 1)]
+            run_default_index = 1 if len(curve_options) > 1 else 0
             run_curve = st.selectbox(
-                "Run curve",
-                options=curve_names,
-                index=curve_names.index(run_default) if run_default in curve_names else 0,
+                "Curve to Shift",
+                options=curve_options,
+                index=run_default_index
             )
 
         st.subheader("Matching parameters")
@@ -216,7 +246,7 @@ if uploaded_file is not None:
 
         if st.button("Run depth matching", type="primary"):
             if ref_curve == run_curve:
-                st.warning("You selected the same curve for both reference and run.")
+                st.warning("Please select two different curves.")
             if shift_step <= 0:
                 st.error("shift_step must be greater than 0.")
                 st.stop()
@@ -255,8 +285,8 @@ if uploaded_file is not None:
             st.write(f"Reference curve: **{ref_curve}**")
             st.write(f"Run curve: **{run_curve}**")
 
-            fig1 = make_depth_plot(result, ref_curve, run_curve)
-            st.pyplot(fig1)
+            fig1 = make_depth_plot_tracks(result, ref_curve, run_curve)
+            st.pyplot(fig1, clear_figure=True)
 
             fig2 = make_correlation_plot(result)
             st.pyplot(fig2)
@@ -275,4 +305,4 @@ if uploaded_file is not None:
     except Exception as e:
         st.error(f"Error: {e}")
 else:
-    st.info("Upload one LAS file to begin.")
+    st.info("Upload a LAS file to begin.")
