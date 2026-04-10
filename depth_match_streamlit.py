@@ -133,40 +133,58 @@ def depth_match_from_single_las(
     }
 
 
-def make_depth_plot_tracks(result, ref_curve, run_curve):
-    fig, axes = plt.subplots(ncols=3, figsize=(8, 6), sharey=True)
+def make_before_plot(result, ref_curve, run_curve):
+    fig, ax = plt.subplots(figsize=(4.5, 6))
 
-
-    axes[0].plot(result["ref"], result["common_depth"])
-    axes[0].invert_yaxis()
-    axes[0].set_title(f"Reference\n{ref_curve}")
-    axes[0].set_xlabel("Gamma")
-    axes[0].set_ylabel("Depth (m)")
-    axes[0].grid(True, alpha=0.3)
-
-
-    axes[1].plot(result["run"], result["common_depth"])
-    axes[1].set_title(f"Run Original\n{run_curve}")
-    axes[1].set_xlabel("Gamma")
-    axes[1].grid(True, alpha=0.3)
-
-
-    axes[2].plot(
+    ax.plot(
         result["ref"],
         result["common_depth"],
         linewidth=1.5,
-        label=f"Ref, {ref_curve}"
+        label=f"Reference, {ref_curve}"
     )
-    axes[2].plot(
+
+    ax.plot(
+        result["run"],
+        result["common_depth"],
+        linewidth=1.5,
+        alpha=0.8,
+        label=f"Curve to Shift, {run_curve}"
+    )
+
+    ax.invert_yaxis()
+    ax.set_xlabel("Gamma")
+    ax.set_ylabel("Depth (m)")
+    ax.set_title("Before Matching")
+    ax.grid(True, alpha=0.3)
+    ax.legend(fontsize=8)
+
+    plt.tight_layout()
+    return fig
+
+def make_after_plot(result, ref_curve, run_curve):
+    fig, ax = plt.subplots(figsize=(4.5, 6))
+
+    ax.plot(
+        result["ref"],
+        result["common_depth"],
+        linewidth=1.5,
+        label=f"Reference, {ref_curve}"
+    )
+
+    ax.plot(
         result["shifted_run"],
         result["common_depth"],
+        linewidth=1.5,
         linestyle="--",
         label=f"Shifted, {run_curve}"
     )
-    axes[2].set_title("Matched Comparison")
-    axes[2].set_xlabel("Gamma")
-    axes[2].grid(True, alpha=0.3)
-    axes[2].legend(fontsize=8)
+
+    ax.invert_yaxis()
+    ax.set_xlabel("Gamma")
+    ax.set_ylabel("Depth (m)")
+    ax.set_title("After Matching")
+    ax.grid(True, alpha=0.3)
+    ax.legend(fontsize=8)
 
     plt.tight_layout()
     return fig
@@ -189,7 +207,7 @@ def make_correlation_plot(result):
     return fig
 
 
-st.set_page_config(page_title="Depth Matching", layout="wide")
+st.set_page_config(page_title="Depth Matching", layout="centered")
 st.title("Depth Matching for Gamma Curves")
 
 uploaded_file = st.file_uploader("Upload a LAS file", type=["las"])
@@ -247,6 +265,7 @@ if uploaded_file is not None:
         if st.button("Run depth matching", type="primary"):
             if ref_curve == run_curve:
                 st.warning("Please select two different curves.")
+                st.stop()
             if shift_step <= 0:
                 st.error("shift_step must be greater than 0.")
                 st.stop()
@@ -283,13 +302,19 @@ if uploaded_file is not None:
                 st.metric("Best correlation", f"{result['best_corr']:.3f}")
 
             st.write(f"Reference curve: **{ref_curve}**")
-            st.write(f"Run curve: **{run_curve}**")
+            st.write(f"Curve to Shift: **{run_curve}**")
 
-            fig1 = make_depth_plot_tracks(result, ref_curve, run_curve)
-            st.pyplot(fig1, clear_figure=True)
+            fig_before = make_before_plot(result, ref_curve, run_curve)
+            fig_after = make_after_plot(result, ref_curve, run_curve)
 
-            fig2 = make_correlation_plot(result)
-            st.pyplot(fig2)
+            col1, col2 = st.columns(2)
+            with col1:
+                st.pyplot(fig_before)
+            with col2:
+                st.pyplot(fig_after)
+            
+            fig_corr = make_correlation_plot(result)
+            st.pyplot(fig_corr)
 
             corr_df = pd.DataFrame({
                 "display_shift_m": result["display_shifts"],
