@@ -219,7 +219,7 @@ if uploaded_file is not None:
 
         curve_options = [
             c for c in curve_names
-            if any(k in c.upper() for k in ["NG", "GAMMA", "GR"])
+            if any(k in c.upper() for k in ["NG", "GR", "GAM"])
         ]
 
         if not curve_options:
